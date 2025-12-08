@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_application_1/theme_manager.dart';
+import 'not.dart'; // ← ajoutés
 
 class SettingsPage extends StatefulWidget {
   final User? user;
@@ -14,11 +14,6 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  bool _biometricAuth = false;
-  bool _emailNotifications = true;
-  bool _pushNotifications = true;
-  String _language = 'Français';
-
   @override
   Widget build(BuildContext context) {
     final themeManager = Provider.of<ThemeManager>(context);
@@ -33,7 +28,7 @@ class _SettingsPageState extends State<SettingsPage> {
       body: ListView(
         padding: EdgeInsets.all(16),
         children: [
-          // SECTION APPAREIL
+          // SECTION APPARENCE
           _buildSectionHeader('Apparence', isDarkMode),
           _buildSettingsTile(
             icon: Icons.dark_mode,
@@ -52,117 +47,12 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
 
-          // SECTION NOTIFICATIONS
-          _buildSectionHeader('Notifications', isDarkMode),
-          _buildSettingsTile(
-            icon: Icons.notifications,
-            title: 'Notifications push',
-            subtitle: 'Recevoir des notifications push',
-            isDarkMode: isDarkMode,
-            trailing: Switch(
-              value: _pushNotifications,
-              onChanged: (value) {
-                setState(() {
-                  _pushNotifications = value;
-                });
-                _showSnackbar(
-                  'Notifications push ${value ? 'activées' : 'désactivées'}',
-                  isDarkMode,
-                );
-              },
-            ),
-          ),
-
-          _buildSettingsTile(
-            icon: Icons.email,
-            title: 'Notifications email',
-            subtitle: 'Recevoir des emails',
-            isDarkMode: isDarkMode,
-            trailing: Switch(
-              value: _emailNotifications,
-              onChanged: (value) {
-                setState(() {
-                  _emailNotifications = value;
-                });
-                _showSnackbar(
-                  'Notifications email ${value ? 'activées' : 'désactivées'}',
-                  isDarkMode,
-                );
-              },
-            ),
-          ),
-
-          // SECTION PRÉFÉRENCES
-          _buildSectionHeader('Préférences', isDarkMode),
-          _buildSettingsTile(
-            icon: Icons.language,
-            title: 'Langue',
-            subtitle: _language,
-            isDarkMode: isDarkMode,
-            trailing: Icon(
-              Icons.chevron_right,
-              color: isDarkMode ? Colors.white : Colors.grey,
-            ),
-            onTap: () {
-              _showLanguageDialog(context, isDarkMode);
-            },
-          ),
-
-          // SECTION SÉCURITÉ
-          _buildSectionHeader('Sécurité', isDarkMode),
-          _buildSettingsTile(
-            icon: Icons.fingerprint,
-            title: 'Authentification biométrique',
-            subtitle: 'Déverrouiller avec empreinte/visage',
-            isDarkMode: isDarkMode,
-            trailing: Switch(
-              value: _biometricAuth,
-              onChanged: (value) {
-                setState(() {
-                  _biometricAuth = value;
-                });
-                _showSnackbar(
-                  'Authentification biométrique ${value ? 'activée' : 'désactivée'}',
-                  isDarkMode,
-                );
-              },
-            ),
-          ),
-
-          _buildSettingsTile(
-            icon: Icons.lock,
-            title: 'Changer le mot de passe',
-            subtitle: 'Mettre à jour votre mot de passe',
-            isDarkMode: isDarkMode,
-            trailing: Icon(
-              Icons.chevron_right,
-              color: isDarkMode ? Colors.white : Colors.grey,
-            ),
-            onTap: () {
-              _showChangePasswordDialog(context, isDarkMode);
-            },
-          ),
-
-          _buildSettingsTile(
-            icon: Icons.security,
-            title: 'Confidentialité',
-            subtitle: 'Paramètres de confidentialité',
-            isDarkMode: isDarkMode,
-            trailing: Icon(
-              Icons.chevron_right,
-              color: isDarkMode ? Colors.white : Colors.grey,
-            ),
-            onTap: () {
-              _showPrivacyDialog(context, isDarkMode);
-            },
-          ),
-
           // SECTION COMPTE
           _buildSectionHeader('Compte', isDarkMode),
           _buildSettingsTile(
             icon: Icons.person,
             title: 'Informations du compte',
-            subtitle: 'Modifier vos informations personnelles',
+            subtitle: 'Voir vos informations personnelles',
             isDarkMode: isDarkMode,
             trailing: Icon(
               Icons.chevron_right,
@@ -192,46 +82,22 @@ class _SettingsPageState extends State<SettingsPage> {
             subtitle: '1.0.0 (Build 123)',
             isDarkMode: isDarkMode,
           ),
+          _buildSectionHeader('Réservations', isDarkMode),
 
           _buildSettingsTile(
-            icon: Icons.assignment,
-            title: 'Conditions d\'utilisation',
-            subtitle: 'Lire les conditions',
+            icon: Icons.history,
+            title: 'Historique de réservation',
+            subtitle: 'Voir votre historique et notifications',
             isDarkMode: isDarkMode,
             trailing: Icon(
               Icons.chevron_right,
               color: isDarkMode ? Colors.white : Colors.grey,
             ),
             onTap: () {
-              _launchUrl('https://votre-site.com/conditions');
-            },
-          ),
-
-          _buildSettingsTile(
-            icon: Icons.privacy_tip,
-            title: 'Politique de confidentialité',
-            subtitle: 'Comment nous utilisons vos données',
-            isDarkMode: isDarkMode,
-            trailing: Icon(
-              Icons.chevron_right,
-              color: isDarkMode ? Colors.white : Colors.grey,
-            ),
-            onTap: () {
-              _launchUrl('https://votre-site.com/confidentialite');
-            },
-          ),
-
-          _buildSettingsTile(
-            icon: Icons.star,
-            title: 'Noter l\'application',
-            subtitle: 'Donnez votre avis sur le store',
-            isDarkMode: isDarkMode,
-            trailing: Icon(
-              Icons.chevron_right,
-              color: isDarkMode ? Colors.white : Colors.grey,
-            ),
-            onTap: () {
-              _showRateAppDialog(context, isDarkMode);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => NotificationsPage()),
+              );
             },
           ),
 
@@ -329,146 +195,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // DIALOGUES ET FONCTIONS
-  void _showLanguageDialog(BuildContext context, bool isDarkMode) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Choisir la langue'),
-        backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildDialogOption(
-              'Français',
-              'français',
-              Icons.language,
-              isDarkMode,
-            ),
-            _buildDialogOption(
-              'English',
-              'english',
-              Icons.language,
-              isDarkMode,
-            ),
-            _buildDialogOption(
-              'Español',
-              'espanol',
-              Icons.language,
-              isDarkMode,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDialogOption(
-    String text,
-    String value,
-    IconData icon,
-    bool isDarkMode,
-  ) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.blue),
-      title: Text(
-        text,
-        style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-      ),
-      trailing: _getCurrentValue(value)
-          ? Icon(Icons.check, color: Colors.blue)
-          : null,
-      onTap: () {
-        setState(() {
-          _updateSetting(value, text);
-        });
-        Navigator.pop(context);
-        _showSnackbar('$text sélectionné', isDarkMode);
-      },
-    );
-  }
-
-  bool _getCurrentValue(String value) {
-    if (value == _language.toLowerCase()) return true;
-    return false;
-  }
-
-  void _updateSetting(String value, String displayText) {
-    if (['français', 'english', 'espanol'].contains(value)) {
-      _language = displayText;
-    }
-  }
-
-  // DIALOGUES IMPORTANTS
-  void _showChangePasswordDialog(BuildContext context, bool isDarkMode) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Changer le mot de passe'),
-        backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Cette fonctionnalité sera disponible dans la prochaine mise à jour.',
-              style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Compris'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showPrivacyDialog(BuildContext context, bool isDarkMode) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Confidentialité'),
-        backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Paramètres de confidentialité:',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: isDarkMode ? Colors.white : Colors.black,
-                ),
-              ),
-              SizedBox(height: 10),
-              Text(
-                '• Partage de données: Désactivé',
-                style: TextStyle(
-                  color: isDarkMode ? Colors.white : Colors.black,
-                ),
-              ),
-              Text(
-                '• Localisation: Uniquement pendant l\'utilisation',
-                style: TextStyle(
-                  color: isDarkMode ? Colors.white : Colors.black,
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Fermer'),
-          ),
-        ],
-      ),
-    );
-  }
-
+  // DIALOGUES
   void _showDeleteAccountDialog(BuildContext context, bool isDarkMode) {
     showDialog(
       context: context,
@@ -521,45 +248,10 @@ class _SettingsPageState extends State<SettingsPage> {
                 listen: false,
               );
               themeManager.themeMode = ThemeMode.light;
-              setState(() {
-                _language = 'Français';
-                _biometricAuth = false;
-                _emailNotifications = true;
-                _pushNotifications = true;
-              });
               Navigator.pop(context);
               _showSnackbar('Paramètres réinitialisés avec succès', isDarkMode);
             },
             child: Text('Réinitialiser'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showRateAppDialog(BuildContext context, bool isDarkMode) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Noter l\'application'),
-        backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
-        content: Text(
-          'Merci d\'utiliser Smart Parking ! Voulez-vous nous noter sur le store ?',
-          style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Plus tard'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _launchUrl(
-                'https://play.google.com/store/apps/details?id=votre.package',
-              );
-            },
-            child: Text('Noter'),
           ),
         ],
       ),
@@ -603,21 +295,26 @@ class _SettingsPageState extends State<SettingsPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Email: ${widget.user?.email ?? 'Non disponible'}',
-              style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+            _buildInfoRow(
+              'Email',
+              widget.user?.email ?? 'Non disponible',
+              isDarkMode,
             ),
-            SizedBox(height: 10),
-            Text(
-              'Nom: ${widget.user?.displayName ?? 'Non défini'}',
-              style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+            SizedBox(height: 12),
+            _buildInfoRow(
+              'Nom',
+              widget.user?.displayName ?? 'Non défini',
+              isDarkMode,
             ),
-            SizedBox(height: 10),
+            SizedBox(height: 12),
+            Divider(),
+            SizedBox(height: 8),
             Text(
               'UID: ${widget.user?.uid ?? 'Non disponible'}',
               style: TextStyle(
                 color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                fontSize: 12,
+                fontSize: 11,
+                fontFamily: 'monospace',
               ),
             ),
           ],
@@ -632,6 +329,30 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Widget _buildInfoRow(String label, String value, bool isDarkMode) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: isDarkMode ? Colors.blue[200] : Colors.blue,
+          ),
+        ),
+        SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 14,
+            color: isDarkMode ? Colors.white : Colors.black,
+          ),
+        ),
+      ],
+    );
+  }
+
   // FONCTIONS UTILITAIRES
   void _showSnackbar(String message, bool isDarkMode) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -641,25 +362,5 @@ class _SettingsPageState extends State<SettingsPage> {
         backgroundColor: isDarkMode ? Colors.grey[700] : Colors.blue,
       ),
     );
-  }
-
-  Future<void> _launchUrl(String url) async {
-    try {
-      if (await canLaunch(url)) {
-        await launch(url);
-      } else {
-        _showSnackbar(
-          'Impossible d\'ouvrir le lien',
-          Provider.of<ThemeManager>(context, listen: false).themeMode ==
-              ThemeMode.dark,
-        );
-      }
-    } catch (e) {
-      _showSnackbar(
-        'Erreur lors de l\'ouverture du lien',
-        Provider.of<ThemeManager>(context, listen: false).themeMode ==
-            ThemeMode.dark,
-      );
-    }
   }
 }

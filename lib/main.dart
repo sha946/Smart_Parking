@@ -11,6 +11,7 @@ import 'screens/settings_page.dart';
 import 'widget_test.dart';
 import 'theme_manager.dart';
 import 'screens/reservation.dart';
+import 'screens/spots.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -68,6 +69,7 @@ class MyApp extends StatelessWidget {
               '/admin': (context) => AdminDashboard(),
               '/settings': (context) => SettingsPage(),
               '/reservation': (context) => ReservationPage(),
+              '/spots': (context) => SpotsPage(),
             },
           );
         },

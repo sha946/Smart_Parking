@@ -2,12 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../auth_service.dart';
 import 'login_page.dart';
-
-// Pages imports - vous devrez créer ces fichiers séparément
-import 'reservation_history_page.dart';
-import 'my_vehicles_page.dart';
 import 'notifications_page.dart';
-import 'payment_methods_page.dart';
 import 'settings_page.dart';
 import 'help_support_page.dart';
 
@@ -29,7 +24,6 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    // Initialize with current display name or email username as fallback
     _nameController.text = _getDisplayName();
   }
 
@@ -40,9 +34,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _updateProfile() async {
     if (_nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Le nom ne peut pas être vide')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Le nom ne peut pas être vide')),
+      );
       return;
     }
 
@@ -57,9 +51,9 @@ class _ProfilePageState extends State<ProfilePage> {
       setState(() {
         _isEditing = false;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Profil mis à jour avec succès')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profil mis à jour avec succès')),
+      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur lors de la mise à jour: $e')),
@@ -89,22 +83,25 @@ class _ProfilePageState extends State<ProfilePage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Déconnexion'),
-        content: Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
+        title: const Text('Déconnexion'),
+        content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Annuler'),
+            child: const Text('Annuler'),
           ),
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
               await _authService.signOut();
               Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => LoginPage()),
+                MaterialPageRoute(builder: (context) => const LoginPage()),
               );
             },
-            child: Text('Déconnexion', style: TextStyle(color: Colors.red)),
+            child: const Text(
+              'Déconnexion',
+              style: TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
@@ -114,34 +111,36 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     final user = widget.user;
-    final displayName = _getDisplayName(); // Use the helper method
+    final displayName = _getDisplayName();
     final email = user?.email ?? '';
     final isAdmin = AuthService.isAdmin(user!);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
+        title: const Text(
           'Mon Profil',
-          style: Theme.of(context).textTheme.headlineSmall,
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
+        backgroundColor: Colors.blue.shade800,
+        foregroundColor: Colors.white,
         actions: [
           if (!_isEditing && !_isLoading)
             IconButton(
-              icon: Icon(Icons.edit),
+              icon: const Icon(Icons.edit),
               onPressed: _startEditing,
               tooltip: 'Modifier le profil',
             ),
         ],
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               child: Column(
                 children: [
                   // Header avec avatar
                   Container(
                     width: double.infinity,
-                    padding: EdgeInsets.all(30),
+                    padding: const EdgeInsets.all(30),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [Colors.blue[400]!, Colors.blue[600]!],
@@ -160,19 +159,19 @@ class _ProfilePageState extends State<ProfilePage> {
                             color: Colors.blue,
                           ),
                         ),
-                        SizedBox(height: 16),
+                        const SizedBox(height: 16),
 
                         // Display Name (editable)
                         _isEditing
                             ? TextFormField(
                                 controller: _nameController,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                 ),
                                 textAlign: TextAlign.center,
-                                decoration: InputDecoration(
+                                decoration: const InputDecoration(
                                   hintText: 'Entrez votre nom',
                                   hintStyle: TextStyle(color: Colors.white70),
                                   border: InputBorder.none,
@@ -180,24 +179,27 @@ class _ProfilePageState extends State<ProfilePage> {
                                 ),
                               )
                             : Text(
-                                displayName, // This will show the actual name
-                                style: TextStyle(
+                                displayName,
+                                style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
 
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text(
                           email,
-                          style: TextStyle(color: Colors.white70, fontSize: 14),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
                         ),
 
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         // Role badge
                         Container(
-                          padding: EdgeInsets.symmetric(
+                          padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 4,
                           ),
@@ -209,7 +211,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                           child: Text(
                             isAdmin ? 'ADMINISTRATEUR' : 'UTILISATEUR',
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -223,88 +225,61 @@ class _ProfilePageState extends State<ProfilePage> {
                   // Edit buttons when editing
                   if (_isEditing) ...[
                     Padding(
-                      padding: EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(16),
                       child: Row(
                         children: [
                           Expanded(
                             child: ElevatedButton(
                               onPressed: _updateProfile,
-                              child: Text('Sauvegarder'),
+                              child: const Text('Sauvegarder'),
                             ),
                           ),
-                          SizedBox(width: 10),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: OutlinedButton(
                               onPressed: _cancelEditing,
-                              child: Text('Annuler'),
+                              child: const Text('Annuler'),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    Divider(),
+                    const Divider(),
                   ],
 
-                  // Menu options - BOUTONS CONFIGURÉS
+                  // Menu options
                   ListView(
                     shrinkWrap: true,
-                    physics: NeverScrollableScrollPhysics(),
+                    physics: const NeverScrollableScrollPhysics(),
                     children: [
+                      // MES RÉSERVATIONS
                       _buildMenuItem(
-                        icon: Icons.history,
-                        title: 'Historique des stationnements',
-                        subtitle: 'Voir mes stationnements précédents',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  ParkingHistoryPage(user: user),
-                            ),
-                          );
-                        },
+                        icon: Icons.local_parking,
+                        title: 'Mes Réservations',
+                        subtitle: 'Historique de vos réservations',
+                        onTap: () {},
                       ),
-                      _buildMenuItem(
-                        icon: Icons.directions_car,
-                        title: 'Mes véhicules',
-                        subtitle: 'Gérer mes véhicules enregistrés',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => MyVehiclesPage(user: user),
-                            ),
-                          );
-                        },
-                      ),
+
+                      // Supprimez ou commentez cette option si elle cause des problèmes
+                      /*
+                      // PARAMÈTRES DE NOTIFICATIONS (optionnel)
                       _buildMenuItem(
                         icon: Icons.notifications,
-                        title: 'Notifications',
-                        subtitle: 'Paramètres des alertes',
+                        title: 'Paramètres Notifications',
+                        subtitle: 'Gérer les alertes',
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  NotificationsPage(user: user),
-                            ),
-                          );
+                          // Vous pouvez créer une autre page pour les paramètres de notifications
+                          // Navigator.push(
+                          //   context,
+                          //   MaterialPageRoute(
+                          //     builder: (context) => NotificationSettingsPage(),
+                          //   ),
+                          // );
                         },
                       ),
-                      _buildMenuItem(
-                        icon: Icons.payment,
-                        title: 'Moyens de paiement',
-                        subtitle: 'Gérer mes cartes de paiement',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  PaymentMethodsPage(user: user),
-                            ),
-                          );
-                        },
-                      ),
+                      */
+
+                      // PARAMÈTRES
                       _buildMenuItem(
                         icon: Icons.settings,
                         title: 'Paramètres',
@@ -318,6 +293,8 @@ class _ProfilePageState extends State<ProfilePage> {
                           );
                         },
                       ),
+
+                      // AIDE & SUPPORT
                       _buildMenuItem(
                         icon: Icons.help,
                         title: 'Aide & Support',
@@ -331,7 +308,10 @@ class _ProfilePageState extends State<ProfilePage> {
                           );
                         },
                       ),
-                      Divider(),
+
+                      const Divider(),
+
+                      // DÉCONNEXION
                       _buildMenuItem(
                         icon: Icons.logout,
                         title: 'Déconnexion',
@@ -361,65 +341,8 @@ class _ProfilePageState extends State<ProfilePage> {
         style: TextStyle(fontWeight: FontWeight.w500, color: textColor),
       ),
       subtitle: Text(subtitle),
-      trailing: Icon(Icons.chevron_right, color: Colors.grey),
+      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
       onTap: onTap,
-    );
-  }
-}
-
-// Page historique des stationnements
-class ParkingHistoryPage extends StatelessWidget {
-  final User user;
-
-  const ParkingHistoryPage({Key? key, required this.user}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Historique des Stationnements')),
-      body: ListView.builder(
-        itemCount: 5, // Exemple
-        itemBuilder: (context, index) {
-          return Card(
-            margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor: Colors.blue[100],
-                child: Icon(Icons.local_parking, color: Colors.blue),
-              ),
-              title: Text(
-                'Place ${String.fromCharCode(65 + index)}${index + 1}',
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Centre Commercial ${index + 1}'),
-                  Text(
-                    '${DateTime.now().subtract(Duration(days: index * 2))}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
-              ),
-              trailing: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '${(index + 1) * 30} min',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    '${(index + 1) * 2}€',
-                    style: TextStyle(
-                      color: Colors.green,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
     );
   }
 }

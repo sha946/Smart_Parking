@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/parking_spot.dart';
 import '../firebase_service.dart';
 
@@ -203,6 +202,29 @@ class _ReservationPageState extends State<ReservationPage> {
 
             Row(
               children: [
+                // Date d'expiration
+                Expanded(
+                  child: TextFormField(
+                    controller: _expiryDateController,
+                    decoration: const InputDecoration(
+                      labelText: 'MM/AA *',
+                      hintText: '12/25',
+                      prefixIcon: Icon(Icons.calendar_today),
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.datetime,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Veuillez entrer la date d\'expiration';
+                      }
+                      if (!RegExp(r'^\d{2}/\d{2}$').hasMatch(value)) {
+                        return 'Format invalide (MM/AA)';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(width: 16),
                 // CVV
                 Expanded(
                   child: TextFormField(
@@ -235,7 +257,6 @@ class _ReservationPageState extends State<ReservationPage> {
               controller: _cardHolderController,
               decoration: const InputDecoration(
                 labelText: 'Titulaire de la carte *',
-                hintText: 'JEAN DUPONT',
                 prefixIcon: Icon(Icons.person),
                 border: OutlineInputBorder(),
               ),
@@ -257,23 +278,8 @@ class _ReservationPageState extends State<ReservationPage> {
                   onChanged: (value) =>
                       setState(() => _saveCardInfo = value ?? false),
                 ),
-                const Expanded(
-                  child: Text(
-                    'Sauvegarder cette carte pour de futurs paiements',
-                    style: TextStyle(fontSize: 14),
-                  ),
-                ),
+                const Text('Sauvegarder les informations de carte'),
               ],
-            ),
-
-            const SizedBox(height: 8),
-            const Text(
-              '🔒 Vos informations de paiement sont sécurisées et cryptées',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-                fontStyle: FontStyle.italic,
-              ),
             ),
           ],
         ),
@@ -515,7 +521,7 @@ class _ReservationPageState extends State<ReservationPage> {
             final isSelected = _selectedDuration == duration;
 
             return ChoiceChip(
-              label: Text('$duration h - ${price.toStringAsFixed(2)}€'),
+              label: Text('$duration h - ${price.toStringAsFixed(2)}dt'),
               selected: isSelected,
               onSelected: (selected) =>
                   setState(() => _selectedDuration = duration),
@@ -672,7 +678,7 @@ class _ReservationPageState extends State<ReservationPage> {
               children: [
                 const Text('Tarif:'),
                 Text(
-                  '${_durationRates[_selectedDuration]?.toStringAsFixed(2)}€',
+                  '${_durationRates[_selectedDuration]?.toStringAsFixed(2)}dt',
                 ),
               ],
             ),
@@ -685,7 +691,7 @@ class _ReservationPageState extends State<ReservationPage> {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  '${_calculatedPrice.toStringAsFixed(2)}€',
+                  '${_calculatedPrice.toStringAsFixed(2)}dt',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -724,6 +730,7 @@ class _ReservationPageState extends State<ReservationPage> {
         _selectedTime != null &&
         _selectedSpot != null &&
         _cardNumberController.text.isNotEmpty &&
+        _expiryDateController.text.isNotEmpty &&
         _cvvController.text.isNotEmpty &&
         _cardHolderController.text.isNotEmpty;
 
@@ -799,15 +806,17 @@ class _ReservationPageState extends State<ReservationPage> {
       // Simuler le traitement du paiement
       await _processPayment();
 
-      // Réservation
+      // Réservation avec la date de création actuelle
       await _service.reserveSpot(
         spotId: _selectedSpot!,
+        
         licensePlate: _licensePlateController.text.trim(),
         email: _emailController.text.trim(),
         reservationDate: _selectedDate!,
         hour: _selectedTime!.hour,
         minute: _selectedTime!.minute,
         duration: _selectedDuration,
+        price: _calculatedPrice,
       );
 
       _showSuccessDialog();
@@ -831,6 +840,8 @@ class _ReservationPageState extends State<ReservationPage> {
   }
 
   void _showSuccessDialog() {
+    final creationDate = DateTime.now(); // Date actuelle pour la création
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -848,7 +859,8 @@ class _ReservationPageState extends State<ReservationPage> {
           children: [
             Text('📍 Place: $_selectedSpot'),
             Text('⏱️ Durée: $_selectedDuration heure(s)'),
-            Text('💰 Prix: ${_calculatedPrice.toStringAsFixed(2)}€'),
+            Text('💰 Prix: ${_calculatedPrice.toStringAsFixed(2)}dt'),
+            Text('📅 Date de réservation: ${_formatDate(creationDate)}'),
             const SizedBox(height: 16),
             const Text(
               'Votre réservation a été confirmée!',
@@ -874,6 +886,12 @@ class _ReservationPageState extends State<ReservationPage> {
     );
   }
 
+  // Fonction pour formater la date
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  // Méthode pour afficher les erreurs (ajoutée car manquante)
   void _showErrorDialog(String message) {
     showDialog(
       context: context,

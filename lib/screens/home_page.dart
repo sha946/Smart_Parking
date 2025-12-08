@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../auth_service.dart';
 import 'admin_dashboard.dart';
 import 'profile_page.dart';
-import 'maps_page.dart';
+import 'spots.dart';
 
 class HomePage extends StatelessWidget {
   final AuthService _auth = AuthService();
@@ -52,7 +52,7 @@ class HomePage extends StatelessWidget {
             icon: Icon(Icons.map),
             tooltip: 'Map du parking',
             onPressed: () {
-              Navigator.pushNamed(context, '/maps');
+              Navigator.pushNamed(context, '/spots');
             },
           ),
 
@@ -151,7 +151,7 @@ class HomePage extends StatelessWidget {
               icon: Icons.map,
               label: 'Explorer le Parking',
               onPressed: () {
-                Navigator.pushNamed(context, '/maps');
+                Navigator.pushNamed(context, '/spots');
               },
             ),
             SizedBox(height: 10),
