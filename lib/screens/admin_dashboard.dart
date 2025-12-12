@@ -194,7 +194,7 @@ class AdminDashboard extends StatelessWidget {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('reservations')
-          .orderBy('created_at', descending: true)
+          .orderBy('creationDate', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -221,6 +221,11 @@ class AdminDashboard extends StatelessWidget {
                   Text(
                     'Erreur de chargement',
                     style: TextStyle(color: Colors.red),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    snapshot.error.toString(),
+                    style: TextStyle(fontSize: 10),
                   ),
                 ],
               ),
@@ -276,16 +281,19 @@ class AdminDashboard extends StatelessWidget {
                       'Total',
                       docs.length.toString(),
                       Colors.blue,
+                      isDarkMode,
                     ),
                     _buildHistoryStatChip(
                       'Confirmées',
                       _getConfirmedCount(docs).toString(),
                       Colors.green,
+                      isDarkMode,
                     ),
                     _buildHistoryStatChip(
                       'Aujourd\'hui',
                       _getTodayCount(docs).toString(),
                       Colors.orange,
+                      isDarkMode,
                     ),
                   ],
                 ),
@@ -310,7 +318,7 @@ class AdminDashboard extends StatelessWidget {
                     columns: [
                       DataColumn(
                         label: Text(
-                          'ID Réservation',
+                          'ID Document',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
@@ -346,7 +354,7 @@ class AdminDashboard extends StatelessWidget {
                       ),
                       DataColumn(
                         label: Text(
-                          'Date',
+                          'Durée',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
@@ -355,7 +363,7 @@ class AdminDashboard extends StatelessWidget {
                       ),
                       DataColumn(
                         label: Text(
-                          'Début',
+                          'Prix',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
@@ -364,7 +372,25 @@ class AdminDashboard extends StatelessWidget {
                       ),
                       DataColumn(
                         label: Text(
-                          'Fin',
+                          'Date Réservation',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Heure Début',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Heure Fin',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
@@ -392,23 +418,34 @@ class AdminDashboard extends StatelessWidget {
                     ],
                     rows: docs.map((doc) {
                       final data = doc.data() as Map<String, dynamic>;
-                      final reservationId = data['reservation_id'] ?? 'N/A';
-                      final spotId = data['spot_id'] ?? 'N/A';
-                      final licensePlate = data['license_plate'] ?? 'N/A';
+
+                      // Use your exact field names
+                      final documentId = doc.id; // Use Firestore document ID
+                      final spotId = data['spotId'] ?? 'N/A';
+                      final licensePlate = data['licensePlate'] ?? 'N/A';
                       final email = data['email'] ?? 'N/A';
+                      final duration = data['duration'] ?? 0;
+                      final price = data['price'] ?? 0.0;
                       final status = data['status'] ?? 'N/A';
 
-                      final reservationDate = data['reservation_date'] != null
-                          ? DateTime.parse(data['reservation_date'])
-                          : null;
+                      // Parse timestamps correctly
+                      DateTime? reservationDateTime;
+                      DateTime? creationDate;
+                      DateTime? reservedUntil; // Calculate this
 
-                      final reservedUntil = data['reserved_until'] != null
-                          ? DateTime.parse(data['reserved_until'])
-                          : null;
+                      if (data['reservationDateTime'] != null) {
+                        reservationDateTime =
+                            (data['reservationDateTime'] as Timestamp).toDate();
+                        // Calculate end time based on duration
+                        reservedUntil = reservationDateTime!.add(
+                          Duration(hours: duration),
+                        );
+                      }
 
-                      final createdAt = data['created_at'] != null
-                          ? (data['created_at'] as Timestamp).toDate()
-                          : null;
+                      if (data['creationDate'] != null) {
+                        creationDate = (data['creationDate'] as Timestamp)
+                            .toDate();
+                      }
 
                       return DataRow(
                         cells: [
@@ -423,7 +460,10 @@ class AdminDashboard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                reservationId,
+                                documentId.substring(
+                                  0,
+                                  8,
+                                ), // Show first 8 chars
                                 style: TextStyle(
                                   fontFamily: 'monospace',
                                   fontSize: 11,
@@ -460,19 +500,46 @@ class AdminDashboard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          DataCell(Text(email, style: TextStyle(fontSize: 12))),
+                          DataCell(
+                            Container(
+                              constraints: BoxConstraints(maxWidth: 150),
+                              child: Text(
+                                email,
+                                style: TextStyle(fontSize: 12),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
                           DataCell(
                             Text(
-                              reservationDate != null
-                                  ? '${reservationDate.day.toString().padLeft(2, '0')}/${reservationDate.month.toString().padLeft(2, '0')}/${reservationDate.year}'
+                              '$duration h',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          DataCell(
+                            Text(
+                              '${price.toStringAsFixed(2)}dt',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green,
+                              ),
+                            ),
+                          ),
+                          DataCell(
+                            Text(
+                              reservationDateTime != null
+                                  ? '${reservationDateTime.day.toString().padLeft(2, '0')}/${reservationDateTime.month.toString().padLeft(2, '0')}/${reservationDateTime.year}'
                                   : 'N/A',
                               style: TextStyle(fontSize: 12),
                             ),
                           ),
                           DataCell(
                             Text(
-                              reservationDate != null
-                                  ? '${reservationDate.hour.toString().padLeft(2, '0')}:${reservationDate.minute.toString().padLeft(2, '0')}'
+                              reservationDateTime != null
+                                  ? '${reservationDateTime.hour.toString().padLeft(2, '0')}:${reservationDateTime.minute.toString().padLeft(2, '0')}'
                                   : 'N/A',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
@@ -517,14 +584,14 @@ class AdminDashboard extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  createdAt != null
-                                      ? '${createdAt.day}/${createdAt.month}/${createdAt.year}'
+                                  creationDate != null
+                                      ? '${creationDate.day}/${creationDate.month}/${creationDate.year}'
                                       : 'N/A',
                                   style: TextStyle(fontSize: 11),
                                 ),
                                 Text(
-                                  createdAt != null
-                                      ? '${createdAt.hour.toString().padLeft(2, '0')}:${createdAt.minute.toString().padLeft(2, '0')}'
+                                  creationDate != null
+                                      ? '${creationDate.hour.toString().padLeft(2, '0')}:${creationDate.minute.toString().padLeft(2, '0')}'
                                       : '',
                                   style: TextStyle(
                                     fontSize: 11,
@@ -547,7 +614,12 @@ class AdminDashboard extends StatelessWidget {
     );
   }
 
-  Widget _buildHistoryStatChip(String label, String value, Color color) {
+  Widget _buildHistoryStatChip(
+    String label,
+    String value,
+    Color color,
+    bool isDarkMode,
+  ) {
     return Column(
       children: [
         Text(
@@ -558,7 +630,14 @@ class AdminDashboard extends StatelessWidget {
             color: color,
           ),
         ),
-        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+          ),
+        ),
       ],
     );
   }
@@ -582,11 +661,11 @@ class AdminDashboard extends StatelessWidget {
     final today = DateTime.now();
     return docs.where((doc) {
       final data = doc.data() as Map<String, dynamic>;
-      if (data['created_at'] == null) return false;
-      final createdAt = (data['created_at'] as Timestamp).toDate();
-      return createdAt.year == today.year &&
-          createdAt.month == today.month &&
-          createdAt.day == today.day;
+      if (data['creationDate'] == null) return false;
+      final creationDate = (data['creationDate'] as Timestamp).toDate();
+      return creationDate.year == today.year &&
+          creationDate.month == today.month &&
+          creationDate.day == today.day;
     }).length;
   }
 

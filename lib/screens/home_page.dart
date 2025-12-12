@@ -5,6 +5,8 @@ import 'admin_dashboard.dart';
 import 'profile_page.dart';
 import 'spots.dart';
 
+import '../parking_monitor_service.dart';
+
 class HomePage extends StatelessWidget {
   final AuthService _auth = AuthService();
   final bool isAdmin;
@@ -21,9 +23,7 @@ class HomePage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          isAdmin ? 'Tableau de Bord Admin' : 'Accueil Smart Parking',
-        ),
+        title: Text(isAdmin ? 'Accueil' : 'Accueil Smart Parking'),
         backgroundColor: Colors.blue,
         elevation: 0,
         actions: [

@@ -12,7 +12,7 @@ class MapsPage extends StatefulWidget {
 
 class _MapsPageState extends State<MapsPage> {
   final FirebaseService _service = FirebaseService();
-  final String _raspberryVideoUrl = "http://[ADRESSE_IP_RASPBERRY]:8000/stream";
+  final String _raspberryVideoUrl = "http://192.168.137.41:8000/stream";
 
   @override
   Widget build(BuildContext context) {
@@ -23,13 +23,6 @@ class _MapsPageState extends State<MapsPage> {
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.book_online),
-            onPressed: () {
-              _navigateToReservationPage();
-            },
-            tooltip: 'Réserver une place',
-          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
@@ -82,7 +75,6 @@ class _MapsPageState extends State<MapsPage> {
                         const SizedBox(width: 12),
                         _buildCompactLegend(Colors.red, 'Occupé'),
                         const SizedBox(width: 12),
-                        _buildCompactLegend(Colors.orange, 'Réservé'),
                       ],
                     ),
                   ],
@@ -301,13 +293,6 @@ class _MapsPageState extends State<MapsPage> {
           ),
         ),
       ),
-    );
-  }
-
-  void _navigateToReservationPage() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const ReservationPage()),
     );
   }
 }

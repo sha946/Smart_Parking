@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "269617228424",
+    "firebase_url": "https://auth-588b6-default-rtdb.europe-west1.firebasedatabase.app",
     "project_id": "auth-588b6",
     "storage_bucket": "auth-588b6.firebasestorage.app"
   },

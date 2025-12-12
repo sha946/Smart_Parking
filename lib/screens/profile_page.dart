@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../auth_service.dart';
 import 'login_page.dart';
-import 'notifications_page.dart';
+import 'mesreservations.dart';
 import 'settings_page.dart';
 import 'help_support_page.dart';
 
@@ -257,7 +257,14 @@ class _ProfilePageState extends State<ProfilePage> {
                         icon: Icons.local_parking,
                         title: 'Mes Réservations',
                         subtitle: 'Historique de vos réservations',
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => MesReservationsPage(),
+                            ),
+                          );
+                        },
                       ),
 
                       // Supprimez ou commentez cette option si elle cause des problèmes

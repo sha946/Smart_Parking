@@ -12,6 +12,9 @@ import 'widget_test.dart';
 import 'theme_manager.dart';
 import 'screens/reservation.dart';
 import 'screens/spots.dart';
+import '../notification_service.dart';
+import '../parking_monitor_service.dart';
+import 'screens/mesreservations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,10 +23,15 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+
     print("Firebase initialized successfully");
   } catch (e) {
     print("Firebase initialization error: $e");
   }
+  await NotificationService().initialize();
+
+  //Démarrer la surveillance des places
+  ParkingMonitorService().startMonitoring();
 
   runApp(MyApp());
 }
@@ -70,6 +78,7 @@ class MyApp extends StatelessWidget {
               '/settings': (context) => SettingsPage(),
               '/reservation': (context) => ReservationPage(),
               '/spots': (context) => SpotsPage(),
+              '/mes_reservations': (context) => MesReservationsPage(),
             },
           );
         },

@@ -1,5 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
+// models/parking_spot.dart
 class ParkingSpot {
   final String id;
   final bool isOccupied;
@@ -23,39 +22,23 @@ class ParkingSpot {
     this.plaque,
   });
 
-  // Conversion depuis Firestore (méthode utilisée dans votre code)
-  factory ParkingSpot.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    return ParkingSpot(
-      id: data['id'] ?? doc.id,
-      isOccupied: data['isOccupied'] ?? false,
-      status: data['status'] ?? 'free',
-      licensePlate: data['licensePlate'],
-      entryTime: data['entryTime'],
-      exitTime: data['exitTime'],
-      reservationStart: data['reservationStart'],
-      reservationEnd: data['reservationEnd'],
-      plaque: data['plaque'],
-    );
-  }
-
-  // Conversion depuis Map (méthode alternative)
+  // Conversion depuis Realtime Database (Map)
   factory ParkingSpot.fromMap(Map<String, dynamic> data, String documentId) {
     return ParkingSpot(
       id: data['id'] ?? documentId,
-      isOccupied: data['isOccupied'] ?? false,
-      status: data['status'] ?? 'free',
-      licensePlate: data['licensePlate'],
-      entryTime: data['entryTime'],
-      exitTime: data['exitTime'],
-      reservationStart: data['reservationStart'],
-      reservationEnd: data['reservationEnd'],
-      plaque: data['plaque'],
+      isOccupied: (data['isOccupied'] ?? false) as bool,
+      status: (data['status'] ?? 'free').toString(),
+      licensePlate: data['licensePlate']?.toString(),
+      entryTime: data['entryTime']?.toString(),
+      exitTime: data['exitTime']?.toString(),
+      reservationStart: data['reservationStart']?.toString(),
+      reservationEnd: data['reservationEnd']?.toString(),
+      plaque: data['plaque']?.toString(),
     );
   }
 
-  // Conversion vers Firestore
-  Map<String, dynamic> toFirestore() {
+  // Conversion vers Map (pour Realtime Database)
+  Map<String, dynamic> toMap() {
     return {
       'id': id,
       'isOccupied': isOccupied,
@@ -68,20 +51,15 @@ class ParkingSpot {
       'plaque': plaque,
     };
   }
-
-  // Conversion vers Map
-  Map<String, dynamic> toMap() {
-    return toFirestore();
-  }
 }
 
-// Modèle pour les réservations (simplifié sans TimeOfDay)
+// Modèle pour les réservations
 class Reservation {
   final String id;
   final String spotId;
   final String licensePlate;
   final String email;
-  final DateTime reservationDateTime; // Date et heure combinées
+  final DateTime reservationDateTime;
   final DateTime creationDate;
   final int duration;
   final double price;
@@ -104,8 +82,8 @@ class Reservation {
       'spotId': spotId,
       'licensePlate': licensePlate,
       'email': email,
-      'reservationDateTime': Timestamp.fromDate(reservationDateTime),
-      'creationDate': Timestamp.fromDate(creationDate),
+      'reservationDateTime': reservationDateTime.millisecondsSinceEpoch,
+      'creationDate': creationDate.millisecondsSinceEpoch,
       'duration': duration,
       'price': price,
       'status': status,
@@ -113,21 +91,22 @@ class Reservation {
   }
 
   static Reservation fromMap(Map<String, dynamic> map, String id) {
-    // Gestion sécurisée des timestamps
+    // Parse timestamps from Realtime Database
     DateTime parseTimestamp(dynamic timestamp) {
       try {
-        if (timestamp is Timestamp) {
-          return timestamp.toDate();
-        } else if (timestamp is Map) {
-          final tsMap = timestamp as Map<String, dynamic>;
-          return DateTime.fromMillisecondsSinceEpoch(
-            (tsMap['_seconds'] ?? 0) * 1000,
-          );
+        if (timestamp is int) {
+          return DateTime.fromMillisecondsSinceEpoch(timestamp);
         } else if (timestamp is String) {
           return DateTime.parse(timestamp);
-        } else {
-          return DateTime.now();
+        } else if (timestamp is Map) {
+          final tsMap = timestamp as Map<String, dynamic>;
+          if (tsMap.containsKey('_seconds')) {
+            return DateTime.fromMillisecondsSinceEpoch(
+              (tsMap['_seconds'] ?? 0) * 1000,
+            );
+          }
         }
+        return DateTime.now();
       } catch (e) {
         return DateTime.now();
       }
@@ -135,7 +114,7 @@ class Reservation {
 
     return Reservation(
       id: id,
-      spotId: map['spotId']?.toString() ?? 'Inconnu',
+      spotId: map['spotId']?.toString() ?? 'Unknown',
       licensePlate: map['licensePlate']?.toString() ?? '',
       email: map['email']?.toString() ?? '',
       reservationDateTime: parseTimestamp(map['reservationDateTime']),

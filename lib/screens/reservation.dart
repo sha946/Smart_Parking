@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_database/firebase_database.dart'; // Ajouté pour Realtime Database
 import '../models/parking_spot.dart';
 import '../firebase_service.dart';
 
@@ -14,7 +16,11 @@ class ReservationPage extends StatefulWidget {
 
 class _ReservationPageState extends State<ReservationPage> {
   final FirebaseService _service = FirebaseService();
-  final TextEditingController _emailController = TextEditingController();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final DatabaseReference _database = FirebaseDatabase.instance
+      .ref(); // Pour Realtime Database
+
   final TextEditingController _licensePlateController = TextEditingController();
   final TextEditingController _cardNumberController = TextEditingController();
   final TextEditingController _expiryDateController = TextEditingController();
@@ -24,56 +30,77 @@ class _ReservationPageState extends State<ReservationPage> {
   String? _selectedSpot;
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
-  int _selectedDuration = 1; // Durée en heures
+  int _selectedDuration = 1;
   bool _isLoading = false;
   bool _agreeToTerms = false;
   bool _saveCardInfo = false;
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-  // Tarifs simplifiés pour test
-  final Map<int, double> _durationRates = {
-    1: 2.0, // 2€ pour 1 heure
-    2: 3.5, // 3.5€ pour 2 heures
-    3: 5.0, // 5€ pour 3 heures
-  };
+  // Tarifs
+  final Map<int, double> _durationRates = {1: 2.0, 2: 3.5, 3: 5.0};
+
+  // Liste des emails autorisés
+  final List<String> _authorizedEmails = [
+    'najet@gmail.com',
+    'abc@gmail.com',
+    'aa@gmail.com',
+    'chaima@gmail.com',
+  ];
+
+  // Liste des plaques d'immatriculation autorisées
+  final List<String> _authorizedLicensePlates = ['123ABC', '456DEF', '789GHI'];
+
+  bool _isEmailAuthorized = false;
+  bool _isLicensePlateValid = false;
 
   @override
   void initState() {
     super.initState();
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null && user.email != null) {
-      _emailController.text = user.email!;
-    }
-
-    if (widget.preSelectedSpot != null) {
-      _selectedSpot = widget.preSelectedSpot;
-    }
-
     _selectedDate = DateTime.now();
     _selectedTime = TimeOfDay.now();
+
+    // Vérifier si l'email est autorisé
+    _checkEmailAuthorization();
+  }
+
+  void _checkEmailAuthorization() {
+    final user = _auth.currentUser;
+    if (user != null && user.email != null) {
+      final userEmail = user.email!.toUpperCase().trim();
+      setState(() {
+        _isEmailAuthorized = _authorizedEmails.any(
+          (email) => email.toUpperCase().trim() == userEmail,
+        );
+      });
+    }
+  }
+
+  bool _checkLicensePlateAuthorization(String plate) {
+    final normalizedPlate = plate.toUpperCase().trim();
+    return _authorizedLicensePlates.any(
+      (authPlate) => authPlate.toUpperCase().trim() == normalizedPlate,
+    );
   }
 
   double get _calculatedPrice {
     return _durationRates[_selectedDuration] ?? 2.0;
   }
 
-  DateTime get _endTime {
-    if (_selectedDate == null || _selectedTime == null) return DateTime.now();
-
-    final startDateTime = DateTime(
-      _selectedDate!.year,
-      _selectedDate!.month,
-      _selectedDate!.day,
-      _selectedTime!.hour,
-      _selectedTime!.minute,
-    );
-
-    return startDateTime.add(Duration(hours: _selectedDuration));
-  }
-
   @override
   Widget build(BuildContext context) {
+    final user = _auth.currentUser;
+
+    // Vérifier si l'utilisateur est authentifié
+    if (user == null) {
+      return _buildUnauthenticatedView();
+    }
+
+    // Vérifier si l'email est autorisé
+    if (!_isEmailAuthorized) {
+      return _buildUnauthorizedEmailView(user.email);
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -106,14 +133,14 @@ class _ReservationPageState extends State<ReservationPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  _buildUserInfoHeader(user),
+                  const SizedBox(height: 10),
                   _buildInfoHeader(availableSpots.length),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 10),
 
                   Expanded(
                     child: ListView(
                       children: [
-                        _buildEmailField(),
-                        const SizedBox(height: 16),
                         _buildLicensePlateField(),
                         const SizedBox(height: 16),
                         _buildDateTimeSelection(),
@@ -121,11 +148,9 @@ class _ReservationPageState extends State<ReservationPage> {
                         _buildDurationSelection(),
                         const SizedBox(height: 16),
 
-                        // SECTION SÉLECTION DES PLACES AVEC ICÔNES
                         _buildSpotSelection(availableSpots),
                         const SizedBox(height: 20),
 
-                        // Section Paiement
                         _buildPaymentSection(),
                         const SizedBox(height: 16),
 
@@ -133,7 +158,10 @@ class _ReservationPageState extends State<ReservationPage> {
                         const SizedBox(height: 16),
                         _buildTermsAndConditions(),
                         const SizedBox(height: 30),
-                        _buildReservationButton(availableSpots.isNotEmpty),
+                        _buildReservationButton(
+                          availableSpots.isNotEmpty,
+                          user,
+                        ),
                       ],
                     ),
                   ),
@@ -146,140 +174,31 @@ class _ReservationPageState extends State<ReservationPage> {
     );
   }
 
-  // Section Paiement
-  Widget _buildPaymentSection() {
-    return Card(
-      elevation: 3,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
+  Widget _buildUnauthenticatedView() {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Réservation'),
+        backgroundColor: Colors.blue.shade800,
+      ),
+      body: Center(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Row(
-              children: [
-                Icon(Icons.credit_card, color: Colors.blue),
-                SizedBox(width: 8),
-                Text(
-                  'Informations de Paiement',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ],
+            Icon(Icons.error_outline, size: 64, color: Colors.red),
+            SizedBox(height: 20),
+            Text(
+              'Authentification requise',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
-
-            // Numéro de carte
-            TextFormField(
-              controller: _cardNumberController,
-              decoration: const InputDecoration(
-                labelText: 'Numéro de carte *',
-                hintText: '1234 5678 9012 3456',
-                prefixIcon: Icon(Icons.credit_card),
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.number,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Veuillez entrer le numéro de carte';
-                }
-                if (value.replaceAll(' ', '').length != 16) {
-                  return 'Le numéro de carte doit contenir 16 chiffres';
-                }
-                return null;
-              },
-              onChanged: (value) {
-                // Formatage automatique
-                if (value.length == 4 ||
-                    value.length == 9 ||
-                    value.length == 14) {
-                  _cardNumberController.text = '$value ';
-                  _cardNumberController.selection = TextSelection.fromPosition(
-                    TextPosition(offset: _cardNumberController.text.length),
-                  );
-                }
-              },
+            SizedBox(height: 10),
+            Text(
+              'Veuillez vous connecter pour réserver une place',
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 16),
-
-            Row(
-              children: [
-                // Date d'expiration
-                Expanded(
-                  child: TextFormField(
-                    controller: _expiryDateController,
-                    decoration: const InputDecoration(
-                      labelText: 'MM/AA *',
-                      hintText: '12/25',
-                      prefixIcon: Icon(Icons.calendar_today),
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.datetime,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Veuillez entrer la date d\'expiration';
-                      }
-                      if (!RegExp(r'^\d{2}/\d{2}$').hasMatch(value)) {
-                        return 'Format invalide (MM/AA)';
-                      }
-                      return null;
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                // CVV
-                Expanded(
-                  child: TextFormField(
-                    controller: _cvvController,
-                    decoration: const InputDecoration(
-                      labelText: 'CVV *',
-                      hintText: '123',
-                      prefixIcon: Icon(Icons.lock),
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.number,
-                    obscureText: true,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Veuillez entrer le CVV';
-                      }
-                      if (value.length != 3) {
-                        return 'Le CVV doit contenir 3 chiffres';
-                      }
-                      return null;
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Titulaire de la carte
-            TextFormField(
-              controller: _cardHolderController,
-              decoration: const InputDecoration(
-                labelText: 'Titulaire de la carte *',
-                prefixIcon: Icon(Icons.person),
-                border: OutlineInputBorder(),
-              ),
-              textCapitalization: TextCapitalization.characters,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Veuillez entrer le nom du titulaire';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-
-            // Option pour sauvegarder la carte
-            Row(
-              children: [
-                Checkbox(
-                  value: _saveCardInfo,
-                  onChanged: (value) =>
-                      setState(() => _saveCardInfo = value ?? false),
-                ),
-                const Text('Sauvegarder les informations de carte'),
-              ],
+            SizedBox(height: 30),
+            ElevatedButton(
+              onPressed: () => Navigator.pushNamed(context, '/login'),
+              child: Text('Se connecter'),
             ),
           ],
         ),
@@ -287,105 +206,257 @@ class _ReservationPageState extends State<ReservationPage> {
     );
   }
 
-  Widget _buildNoDataView() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.error_outline, size: 64, color: Colors.grey.shade400),
-          const SizedBox(height: 16),
-          const Text(
-            'Aucune donnée de parking disponible',
-            style: TextStyle(fontSize: 18, color: Colors.grey),
-          ),
-        ],
+  Widget _buildUnauthorizedEmailView(String? userEmail) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Réservation'),
+        backgroundColor: Colors.blue.shade800,
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.block, size: 64, color: Colors.red),
+            SizedBox(height: 20),
+            Text(
+              'Email non autorisé',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 10),
+            Text(
+              'Votre email n\'est pas autorisé à effectuer des réservations',
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 10),
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'Votre email:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    userEmail ?? 'Non disponible',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 20),
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'Emails autorisés:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 8),
+                  ..._authorizedEmails
+                      .map(
+                        (email) => Text(email, style: TextStyle(fontSize: 12)),
+                      )
+                      .toList(),
+                ],
+              ),
+            ),
+            SizedBox(height: 30),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Retour'),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildInfoHeader(int availableSpots) {
+  Widget _buildUserInfoHeader(User user) {
     return Card(
-      elevation: 4,
-      color: Colors.blue.shade50,
+      elevation: 2,
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(12.0),
         child: Row(
           children: [
-            Icon(Icons.info_outline, color: Colors.blue.shade700, size: 24),
-            const SizedBox(width: 12),
+            CircleAvatar(
+              backgroundColor: Colors.green.shade100,
+              child: Icon(Icons.person, color: Colors.green.shade800),
+            ),
+            SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '$availableSpots place(s) disponible(s)',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue.shade900,
-                    ),
+                    user.displayName ?? 'Utilisateur autorisé',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
-                  const SizedBox(height: 4),
-                  if (widget.preSelectedSpot != null)
-                    Text(
-                      'Place présélectionnée: ${widget.preSelectedSpot}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.green,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
-                  else if (availableSpots > 0)
-                    const Text(
-                      'Sélectionnez une place et complétez les informations',
-                      style: TextStyle(fontSize: 12, color: Colors.blue),
-                    )
-                  else
-                    const Text(
-                      'Aucune place disponible pour le moment',
-                      style: TextStyle(fontSize: 12, color: Colors.red),
-                    ),
+                  Text(
+                    user.email ?? '',
+                    style: TextStyle(fontSize: 12, color: Colors.green),
+                  ),
                 ],
               ),
             ),
+            Icon(Icons.verified, color: Colors.green, size: 20),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildEmailField() {
-    return TextFormField(
-      controller: _emailController,
-      decoration: const InputDecoration(
-        labelText: 'Email *',
-        hintText: 'votre@email.com',
-        prefixIcon: Icon(Icons.email),
-        border: OutlineInputBorder(),
-      ),
-      keyboardType: TextInputType.emailAddress,
-      validator: (value) {
-        if (value == null || value.isEmpty)
-          return 'Veuillez entrer votre email';
-        return null;
-      },
+  Widget _buildLicensePlateField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Plaque d\'immatriculation *',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: _licensePlateController,
+          decoration: InputDecoration(
+            labelText: 'Plaque d\'immatriculation',
+            hintText: '123ABC',
+            prefixIcon: Icon(Icons.confirmation_number),
+            border: OutlineInputBorder(),
+            suffixIcon: _licensePlateController.text.isNotEmpty
+                ? IconButton(
+                    icon: Icon(
+                      _isLicensePlateValid ? Icons.check_circle : Icons.warning,
+                      color: _isLicensePlateValid
+                          ? Colors.green
+                          : Colors.orange,
+                    ),
+                    onPressed: _verifyLicensePlate,
+                  )
+                : null,
+          ),
+          textCapitalization: TextCapitalization.characters,
+          onChanged: (value) {
+            setState(() {
+              _isLicensePlateValid = false;
+            });
+          },
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Veuillez entrer la plaque d\'immatriculation';
+            }
+            if (!_isLicensePlateValid) {
+              return 'Veuillez vérifier que cette plaque est autorisée';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _verifyLicensePlate,
+                icon: Icon(Icons.verified_user, size: 18),
+                label: Text('Vérifier cette plaque'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade800,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
+            SizedBox(width: 8),
+            IconButton(
+              onPressed: _showAuthorizedPlates,
+              icon: Icon(Icons.info_outline, color: Colors.blue),
+              tooltip: 'Voir les plaques autorisées',
+            ),
+          ],
+        ),
+      ],
     );
   }
 
-  Widget _buildLicensePlateField() {
-    return TextFormField(
-      controller: _licensePlateController,
-      decoration: const InputDecoration(
-        labelText: 'Plaque d\'immatriculation *',
-        hintText: 'AB-123-CD',
-        prefixIcon: Icon(Icons.confirmation_number),
-        border: OutlineInputBorder(),
+  Future<void> _verifyLicensePlate() async {
+    final plate = _licensePlateController.text.trim();
+
+    if (plate.isEmpty) {
+      _showErrorDialog(
+        'Plaque vide',
+        'Veuillez entrer une plaque d\'immatriculation',
+      );
+      return;
+    }
+
+    final isValid = _checkLicensePlateAuthorization(plate);
+
+    setState(() {
+      _isLicensePlateValid = isValid;
+    });
+
+    if (isValid) {
+      _showPlateVerificationDialog(
+        'Plaque autorisée',
+        'Cette plaque est autorisée pour la réservation',
+      );
+    } else {
+      _showErrorDialog(
+        'Plaque non autorisée',
+        'Cette plaque n\'est pas dans la liste des plaques autorisées',
+      );
+    }
+  }
+
+  void _showAuthorizedPlates() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.directions_car, color: Colors.blue),
+            SizedBox(width: 8),
+            Text('Plaques autorisées'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Seules ces plaques sont autorisées:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 10),
+            ..._authorizedLicensePlates
+                .map(
+                  (plate) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        Icon(Icons.check, size: 16, color: Colors.green),
+                        SizedBox(width: 8),
+                        Text(plate, style: TextStyle(fontSize: 16)),
+                      ],
+                    ),
+                  ),
+                )
+                .toList(),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Fermer'),
+          ),
+        ],
       ),
-      textCapitalization: TextCapitalization.characters,
-      validator: (value) {
-        if (value == null || value.isEmpty) return 'Veuillez entrer la plaque';
-        return null;
-      },
     );
   }
 
@@ -533,18 +604,10 @@ class _ReservationPageState extends State<ReservationPage> {
             );
           }).toList(),
         ),
-        if (_selectedDate != null && _selectedTime != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            'Fin: ${_endTime.hour}h${_endTime.minute.toString().padLeft(2, '0')}',
-            style: const TextStyle(fontSize: 12, color: Colors.orange),
-          ),
-        ],
       ],
     );
   }
 
-  // SECTION SÉLECTION DES PLACES AVEC PETITES ICÔNES
   Widget _buildSpotSelection(List<ParkingSpot> availableSpots) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -582,7 +645,6 @@ class _ReservationPageState extends State<ReservationPage> {
     );
   }
 
-  // GRILLE COMPACTE DES PLACES AVEC PETITES ICÔNES
   Widget _buildCompactSpotsGrid(List<ParkingSpot> spots) {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -595,8 +657,8 @@ class _ReservationPageState extends State<ReservationPage> {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 6, // Plus de colonnes pour des icônes plus petites
-          childAspectRatio: 0.9, // Ratio carré
+          crossAxisCount: 6,
+          childAspectRatio: 0.9,
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
         ),
@@ -604,7 +666,6 @@ class _ReservationPageState extends State<ReservationPage> {
         itemBuilder: (context, index) {
           final spot = spots[index];
           final isSelected = _selectedSpot == spot.id;
-          final isPreSelected = widget.preSelectedSpot == spot.id;
 
           return GestureDetector(
             onTap: () => setState(() => _selectedSpot = spot.id),
@@ -632,7 +693,7 @@ class _ReservationPageState extends State<ReservationPage> {
                   Icon(
                     Icons.local_parking,
                     color: isSelected ? Colors.white : Colors.blue.shade700,
-                    size: 20, // Icône petite
+                    size: 20,
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -648,6 +709,140 @@ class _ReservationPageState extends State<ReservationPage> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildPaymentSection() {
+    return Card(
+      elevation: 3,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.credit_card, color: Colors.blue),
+                SizedBox(width: 8),
+                Text(
+                  'Informations de Paiement',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            TextFormField(
+              controller: _cardNumberController,
+              decoration: const InputDecoration(
+                labelText: 'Numéro de carte *',
+                hintText: '1234 5678 9012 3456',
+                prefixIcon: Icon(Icons.credit_card),
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Veuillez entrer le numéro de carte';
+                }
+                if (value.replaceAll(' ', '').length != 16) {
+                  return 'Le numéro de carte doit contenir 16 chiffres';
+                }
+                return null;
+              },
+              onChanged: (value) {
+                if (value.length == 4 ||
+                    value.length == 9 ||
+                    value.length == 14) {
+                  _cardNumberController.text = '$value ';
+                  _cardNumberController.selection = TextSelection.fromPosition(
+                    TextPosition(offset: _cardNumberController.text.length),
+                  );
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _expiryDateController,
+                    decoration: const InputDecoration(
+                      labelText: 'MM/AA *',
+                      hintText: '12/25',
+                      prefixIcon: Icon(Icons.calendar_today),
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.datetime,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Veuillez entrer la date d\'expiration';
+                      }
+                      if (!RegExp(r'^\d{2}/\d{2}$').hasMatch(value)) {
+                        return 'Format invalide (MM/AA)';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: TextFormField(
+                    controller: _cvvController,
+                    decoration: const InputDecoration(
+                      labelText: 'CVV *',
+                      hintText: '123',
+                      prefixIcon: Icon(Icons.lock),
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                    obscureText: true,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Veuillez entrer le CVV';
+                      }
+                      if (value.length != 3) {
+                        return 'Le CVV doit contenir 3 chiffres';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            TextFormField(
+              controller: _cardHolderController,
+              decoration: const InputDecoration(
+                labelText: 'Titulaire de la carte *',
+                prefixIcon: Icon(Icons.person),
+                border: OutlineInputBorder(),
+              ),
+              textCapitalization: TextCapitalization.characters,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Veuillez entrer le nom du titulaire';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+
+            Row(
+              children: [
+                Checkbox(
+                  value: _saveCardInfo,
+                  onChanged: (value) =>
+                      setState(() => _saveCardInfo = value ?? false),
+                ),
+                const Text('Sauvegarder les informations de carte'),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -723,23 +918,26 @@ class _ReservationPageState extends State<ReservationPage> {
     );
   }
 
-  Widget _buildReservationButton(bool hasAvailableSpots) {
+  Widget _buildReservationButton(bool hasAvailableSpots, User user) {
     final isFormValid =
         _agreeToTerms &&
         _selectedDate != null &&
         _selectedTime != null &&
         _selectedSpot != null &&
+        _licensePlateController.text.isNotEmpty &&
+        _isLicensePlateValid &&
         _cardNumberController.text.isNotEmpty &&
         _expiryDateController.text.isNotEmpty &&
         _cvvController.text.isNotEmpty &&
-        _cardHolderController.text.isNotEmpty;
+        _cardHolderController.text.isNotEmpty &&
+        _isEmailAuthorized;
 
     return SizedBox(
       width: double.infinity,
       height: 50,
       child: ElevatedButton.icon(
         onPressed: hasAvailableSpots && !_isLoading && isFormValid
-            ? _makeReservation
+            ? () => _makeReservation(user)
             : null,
         icon: _isLoading
             ? SizedBox(
@@ -782,7 +980,7 @@ class _ReservationPageState extends State<ReservationPage> {
     if (picked != null) setState(() => _selectedTime = picked);
   }
 
-  Future<void> _makeReservation() async {
+  Future<void> _makeReservation(User user) async {
     if (!_formKey.currentState!.validate()) {
       _showErrorDialog('Veuillez corriger les erreurs dans le formulaire');
       return;
@@ -790,6 +988,28 @@ class _ReservationPageState extends State<ReservationPage> {
 
     if (!_agreeToTerms) {
       _showErrorDialog('Veuillez accepter les conditions générales');
+      return;
+    }
+
+    // Double-check email authorization
+    if (!_isEmailAuthorized) {
+      _showErrorDialog(
+        'Email non autorisé',
+        'Votre email n\'est pas autorisé à effectuer des réservations',
+      );
+      return;
+    }
+
+    // Double-check license plate authorization
+    final isLicensePlateValid = _checkLicensePlateAuthorization(
+      _licensePlateController.text.trim(),
+    );
+
+    if (!isLicensePlateValid) {
+      _showErrorDialog(
+        'Plaque non autorisée',
+        'Cette plaque n\'est pas autorisée pour la réservation',
+      );
       return;
     }
 
@@ -803,45 +1023,97 @@ class _ReservationPageState extends State<ReservationPage> {
         return;
       }
 
-      // Simuler le traitement du paiement
+      // Simuler le paiement
       await _processPayment();
 
-      // Réservation avec la date de création actuelle
-      await _service.reserveSpot(
-        spotId: _selectedSpot!,
-        
-        licensePlate: _licensePlateController.text.trim(),
-        email: _emailController.text.trim(),
-        reservationDate: _selectedDate!,
-        hour: _selectedTime!.hour,
-        minute: _selectedTime!.minute,
-        duration: _selectedDuration,
-        price: _calculatedPrice,
-      );
+      // Créer la réservation dans Firestore et mettre à jour Realtime Database
+      await _createReservationInFirestore(user);
 
-      _showSuccessDialog();
+      _showReservationSuccessDialog();
     } catch (e) {
-      _showErrorDialog('Erreur: ${e.toString()}');
+      String errorMessage = 'Erreur lors de la réservation';
+      if (e.toString().contains('No document to update')) {
+        errorMessage = 'Problème avec la base de données. Veuillez réessayer.';
+      } else if (e.toString().contains('parking_spots')) {
+        errorMessage = 'Problème d\'accès à la base de données des places.';
+      }
+
+      _showErrorDialog('Erreur', '$errorMessage\n\nDétails: $e');
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  // Simulation du traitement de paiement
-  Future<void> _processPayment() async {
-    // Simuler un délai de traitement
-    await Future.delayed(const Duration(seconds: 2));
+  Future<void> _createReservationInFirestore(User user) async {
+    try {
+      // Créer DateTime pour reservationDateTime
+      final reservationDateTime = DateTime(
+        _selectedDate!.year,
+        _selectedDate!.month,
+        _selectedDate!.day,
+        _selectedTime!.hour,
+        _selectedTime!.minute,
+      );
 
-    // Dans une application réelle, vous intégreriez ici une API de paiement
-    // comme Stripe, PayPal, etc.
+      // 1. CRÉER LA RÉSERVATION DANS FIRESTORE
+      final reservationRef = await _firestore.collection('reservations').add({
+        'spotId': _selectedSpot!,
+        'licensePlate': _licensePlateController.text.trim().toUpperCase(),
+        'email': user.email!,
+        'duration': _selectedDuration,
+        'price': _calculatedPrice,
+        'reservationDateTime': Timestamp.fromDate(reservationDateTime),
+        'creationDate': Timestamp.now(),
+        'status': 'confirmed',
+      });
 
-    // Pour le moment, on simule juste un paiement réussi
-    return;
+      print("✅ Réservation créée dans Firestore avec ID: ${reservationRef.id}");
+
+      // 2. METTRE À JOUR LA PLACE DANS REALTIME DATABASE
+      try {
+        // Vérifier d'abord si la place existe
+        final spotSnapshot = await _database
+            .child('parking_spots')
+            .child(_selectedSpot!)
+            .get();
+
+        if (spotSnapshot.exists) {
+          // Mettre à jour la place existante
+          await _database.child('parking_spots').child(_selectedSpot!).update({
+            'isOccupied': true,
+            'status': 'reserved',
+            'lastUpdated': ServerValue.timestamp,
+          });
+          print("✅ Place $_selectedSpot mise à jour dans Realtime Database");
+        } else {
+          // Créer la place si elle n'existe pas
+          await _database.child('parking_spots').child(_selectedSpot!).set({
+            'id': _selectedSpot!,
+            'isOccupied': true,
+            'status': 'reserved',
+            'createdAt': ServerValue.timestamp,
+            'lastUpdated': ServerValue.timestamp,
+          });
+          print("✅ Place $_selectedSpot créée dans Realtime Database");
+        }
+      } catch (e) {
+        print(
+          "⚠️ Erreur lors de la mise à jour de la place dans Realtime Database: $e",
+        );
+        // On peut continuer même si la mise à jour de la place échoue
+        // La réservation est déjà créée dans Firestore
+      }
+    } catch (e) {
+      print("❌ Erreur lors de la création de la réservation: $e");
+      rethrow;
+    }
   }
 
-  void _showSuccessDialog() {
-    final creationDate = DateTime.now(); // Date actuelle pour la création
+  Future<void> _processPayment() async {
+    await Future.delayed(const Duration(seconds: 2));
+  }
 
+  void _showReservationSuccessDialog() {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -858,9 +1130,10 @@ class _ReservationPageState extends State<ReservationPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('📍 Place: $_selectedSpot'),
+            Text('🚗 Plaque: ${_licensePlateController.text}'),
+            Text('📧 Email: ${_auth.currentUser?.email}'),
             Text('⏱️ Durée: $_selectedDuration heure(s)'),
             Text('💰 Prix: ${_calculatedPrice.toStringAsFixed(2)}dt'),
-            Text('📅 Date de réservation: ${_formatDate(creationDate)}'),
             const SizedBox(height: 16),
             const Text(
               'Votre réservation a été confirmée!',
@@ -886,24 +1159,40 @@ class _ReservationPageState extends State<ReservationPage> {
     );
   }
 
-  // Fonction pour formater la date
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
-  }
-
-  // Méthode pour afficher les erreurs (ajoutée car manquante)
-  void _showErrorDialog(String message) {
+  void _showPlateVerificationDialog(String title, String message) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.error, color: Colors.red),
+            Icon(Icons.check_circle, color: Colors.green),
             SizedBox(width: 8),
-            Text('Erreur'),
+            Text(title),
           ],
         ),
         content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showErrorDialog(String title, [String? message]) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.error, color: Colors.red),
+            SizedBox(width: 8),
+            Text(title),
+          ],
+        ),
+        content: Text(message ?? title),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -914,9 +1203,91 @@ class _ReservationPageState extends State<ReservationPage> {
     );
   }
 
+  Widget _buildNoDataView() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 64, color: Colors.grey.shade400),
+          const SizedBox(height: 16),
+          const Text(
+            'Aucune donnée de parking disponible',
+            style: TextStyle(fontSize: 18, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoHeader(int availableSpots) {
+    return Card(
+      elevation: 4,
+      color: Colors.blue.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.blue.shade700, size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$availableSpots place(s) disponible(s)',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.email, size: 16, color: Colors.green),
+                SizedBox(width: 8),
+                Text(
+                  'Email autorisé: ${_auth.currentUser?.email}',
+                  style: TextStyle(fontSize: 12, color: Colors.green),
+                ),
+              ],
+            ),
+            SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(
+                  _isLicensePlateValid ? Icons.check_circle : Icons.warning,
+                  size: 16,
+                  color: _isLicensePlateValid ? Colors.green : Colors.orange,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  _isLicensePlateValid
+                      ? 'Plaque autorisée: ${_licensePlateController.text}'
+                      : 'Vérifiez votre plaque d\'immatriculation',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _isLicensePlateValid ? Colors.green : Colors.orange,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
-    _emailController.dispose();
     _licensePlateController.dispose();
     _cardNumberController.dispose();
     _expiryDateController.dispose();
