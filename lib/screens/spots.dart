@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../firebase_service.dart';
 import '../models/parking_spot.dart';
-import 'maps_page.dart';
+
 import 'reservation.dart';
 import '../models/parking_spot.dart';
 
@@ -58,14 +58,8 @@ class _SpotsPageState extends State<SpotsPage> {
             },
             tooltip: 'Réserver une place',
           ),
+
           // Bouton pour naviguer vers la page Maps
-          IconButton(
-            icon: const Icon(Icons.video_camera_front),
-            onPressed: () {
-              _navigateToMapsPage();
-            },
-            tooltip: 'Voir le flux vidéo',
-          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
@@ -338,12 +332,6 @@ class _SpotsPageState extends State<SpotsPage> {
   }
 
   // Méthode pour naviguer vers la page Maps
-  void _navigateToMapsPage() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const MapsPage()),
-    );
-  }
 
   void _navigateToReservationPage() {
     Navigator.push(

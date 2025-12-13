@@ -4,7 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'screens/login_page.dart';
 import 'screens/home_page.dart';
-import 'screens/maps_page.dart';
+
 import 'screens/profile_page.dart';
 import 'screens/admin_dashboard.dart';
 import 'screens/settings_page.dart';
@@ -72,7 +72,7 @@ class MyApp extends StatelessWidget {
             routes: {
               '/login': (context) => LoginPage(),
               '/home': (context) => HomePage(isAdmin: false),
-              '/maps': (context) => MapsPage(),
+
               '/profile': (context) => ProfilePage(),
               '/admin': (context) => AdminDashboard(),
               '/settings': (context) => SettingsPage(),
