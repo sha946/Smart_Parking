@@ -13,7 +13,7 @@ class AuthService {
       'admin@example.com',
       'admin@smartparking.com',
       'chaima@gmail.com',
-    ]; // Add your admin emails
+    ]; 
     return adminEmails.contains(user.email);
   }
 

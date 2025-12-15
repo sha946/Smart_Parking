@@ -235,13 +235,6 @@ class _SpotsPageState extends State<SpotsPage> {
                 style: TextStyle(color: Colors.grey[600], fontSize: 14),
               ),
             ],
-            if (spot.entryTime != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                'Entrée: ${formattedEntryTime ?? spot.entryTime}',
-                style: TextStyle(color: Colors.grey[600], fontSize: 14),
-              ),
-            ],
           ],
         ),
         trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
